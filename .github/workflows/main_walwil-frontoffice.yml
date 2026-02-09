@@ -53,9 +53,6 @@ jobs:
           with:
             name: node-app
 
-        - name: Zip for deployment
-          run: zip -r deploy.zip .
-
         - name: Login to Azure
           uses: azure/login@v2
           with:
@@ -68,9 +65,10 @@ jobs:
           with:
             app-name: 'walwil-frontoffice'
             slot-name: 'Production'
-            package: deploy.zip
+            package: .
 
           
+
 
 
 
