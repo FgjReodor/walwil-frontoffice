@@ -30,30 +30,38 @@ export function ChargesTable({ charges }: ChargesTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {charges.map((charge) => (
-              <tr key={charge.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2 font-mono text-xs font-medium text-gray-900">
-                  {charge.chargeCode}
-                </td>
-                <td className="px-4 py-2 text-gray-700">{charge.description}</td>
-                <td className="px-4 py-2 text-right text-gray-700">{charge.quantity}</td>
-                <td className="px-4 py-2 text-right text-gray-700">
-                  {charge.rate?.toFixed(2)} {charge.currency}
-                </td>
-                <td className="px-4 py-2 text-right font-medium text-gray-900">
-                  {charge.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })} {charge.currency}
-                </td>
-                <td className="px-4 py-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    charge.freightTerms === 'PREPAID'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {charge.freightTerms}
-                  </span>
+            {charges.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-amber-600 bg-amber-50">
+                  No rates available for this route. Charges will need to be added manually or the rate sheet updated.
                 </td>
               </tr>
-            ))}
+            ) : (
+              charges.map((charge) => (
+                <tr key={charge.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 font-mono text-xs font-medium text-gray-900">
+                    {charge.chargeCode}
+                  </td>
+                  <td className="px-4 py-2 text-gray-700">{charge.description}</td>
+                  <td className="px-4 py-2 text-right text-gray-700">{charge.quantity}</td>
+                  <td className="px-4 py-2 text-right text-gray-700">
+                    {charge.rate?.toFixed(2)} {charge.currency}
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium text-gray-900">
+                    {charge.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })} {charge.currency}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      charge.freightTerms === 'PREPAID'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {charge.freightTerms}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
           <tfoot className="bg-gray-50 border-t border-gray-200">
             <tr>

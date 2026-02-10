@@ -579,9 +579,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
               )}
 
               {/* Charges Table */}
-              {detail?.charges && detail.charges.length > 0 && (
-                <ChargesTable charges={detail.charges} />
-              )}
+              <ChargesTable charges={detail?.charges ?? []} />
 
               {/* Email Thread */}
               <EmailThread
