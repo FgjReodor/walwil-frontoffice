@@ -41,14 +41,14 @@ IMPORTANT RULES:
    - Duplicate VINs (add "duplicate_vin:VIN appears X times")
 
 3. VEHICLE CHECKS:
-   - List all VINs with missing weight in "vehicles_missing_weight"
+   - Analyze ALL vehicles in the input data for issues
+   - List all VINs with missing/null/zero weight in "vehicles_missing_weight"
    - List all VINs with suspicious/ambiguous data in "vehicles_with_issues"
    - Check for duplicate VINs
 
-CRITICAL REQUIREMENT: You MUST output EVERY SINGLE vehicle in the vehicles array.
-  Do NOT truncate, summarize, or use comments like "... truncated" or "... remaining vehicles".
-  Output the complete array with all vehicles, even if there are hundreds.
-  I need the full data for database storage - truncation will cause data loss.
+VEHICLES: Do NOT output individual vehicles. Always set "vehicles": [].
+Vehicle records are created separately from the Office Script data.
+But you MUST still analyze the vehicle data and report issues in vehicles_missing_weight, vehicles_with_issues, missing_fields, and ambiguous_fields.
 
 PARTY ADDRESS EXTRACTION:
   For shipper, consignee, and notify_party, extract addresses into structured fields:
@@ -132,39 +132,14 @@ PARTY ADDRESS EXTRACTION:
       "weight_kg": number,
       "cbm": number
     },
-    "vehicles": [
-      {
-        "vin": "VIN number",
-        "make": "Manufacturer (BMW, TOYOTA, etc.)",
-        "model": "Model name",
-        "year": year as number or null,
-        "vehicle_type": "CAR/SUV/TRUCK/VAN/MOTORCYCLE/BUS",
-        "weight_kg": number or null if missing,
-        "length_m": length in meters or null,
-        "width_m": width in meters or null,
-        "height_m": height in meters or null,
-        "cbm": number,
-        "hs_code": "6-digit HS code (e.g., 870323)",
-        "color": "Vehicle color if mentioned",
-        "customer_reference": "Customer's reference number",
-        "ecn_crn_number": "ECN or CRN number if present",
-        "country_of_origin": "Manufacturing country",
-        "hazardous": true/false,
-        "afv": true/false (electric, hybrid, hydrogen)
-      }
-    ],
+    "vehicles": [],
     "vehicles_missing_weight": ["VINs with missing/null/empty/zero weight"],
-    "vehicles_with_issues": ["VINs with ambiguous or suspicious data"],
+    "vehicles_with_issues": ["VINs with suspicious or ambiguous data"],
     "missing_fields": ["fields that are missing - use 'vessel' not 'vessel_name', include 'Vehicle Weight:VIN' for each missing weight"],
     "ambiguous_fields": ["field:reason for each ambiguous item, including weight_mismatch and duplicate_vin checks"]
   }
 
 FIELD NOTES:
-  - hs_code: Extract 6 digits only, remove dots (e.g., "8703.23" -> "870323")
-  - afv: Mark true for electric (EV), hybrid, plug-in hybrid, hydrogen vehicles
-  - vehicle_type: CAR, SUV, TRUCK, VAN, MOTORCYCLE, BUS
-  - length/width/height: Convert to meters if given in cm or other units
-  - country_of_origin: Use country name, not code
   - Party addresses: Split into structured fields. If only a single address string is available,
     put the street in address1, and parse city/state/postal/country as best as possible.
 
