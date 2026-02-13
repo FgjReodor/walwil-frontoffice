@@ -41,6 +41,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { openShipmentPreview } from '@/lib/export-excel';
 
 interface ShipmentCardProps {
   shipment: Shipment;
@@ -288,6 +289,20 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {shipment.xlsxFileUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-green-600 border-green-600 hover:bg-green-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(shipment.xlsxFileUrl, '_blank');
+              }}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              XLSX
+            </Button>
+          )}
           {shipment.siFileUrl && (
             <Button
               variant="outline"
@@ -478,16 +493,28 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       <Mail className="h-4 w-4" />
                       <span className="font-medium">Source Email</span>
                     </div>
-                    {detail?.siFileUrl && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="text-blue-600 p-0 h-auto"
-                        onClick={() => window.open(detail.siFileUrl, '_blank')}
-                      >
-                        View Attachment <ExternalLink className="ml-1 h-3 w-3" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {detail?.xlsxFileUrl && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-green-600 p-0 h-auto"
+                          onClick={() => window.open(detail.xlsxFileUrl, '_blank')}
+                        >
+                          Generated XLSX <ExternalLink className="ml-1 h-3 w-3" />
+                        </Button>
+                      )}
+                      {detail?.siFileUrl && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-blue-600 p-0 h-auto"
+                          onClick={() => window.open(detail.siFileUrl, '_blank')}
+                        >
+                          View Attachment <ExternalLink className="ml-1 h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -609,6 +636,16 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {detail && (
+                        <Button
+                          variant="outline"
+                          className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                          onClick={() => openShipmentPreview(detail)}
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Preview
+                        </Button>
+                      )}
                       {csvResult ? (
                         <Button
                           variant="outline"

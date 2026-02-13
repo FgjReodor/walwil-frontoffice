@@ -1,0 +1,8 @@
+Column Name,Display Name,Data Type,Required,Description
+fgj_chargeid,Charge ID,Unique Identifier,Yes,Primary key - auto-generated
+fgj_rateid,Rate,Lookup (fgj_rates),Yes,Parent rate structure
+fgj_chargecode,Charge Code,Text (10),Yes,OCEAN / BAH / BAM / PSD / ETS / THL / WHD / ORA
+fgj_description,Description,Text (100),No,Ocean Freight / Bunker Adjustment Factor / etc.
+fgj_rate,Rate,Decimal,Yes,Per-unit rate amount
+fgj_currency,Currency,Text (3),Yes,USD / EUR
+fgj_freightterms,Freight Terms,Choice,Yes,PREPAID / COLLECT

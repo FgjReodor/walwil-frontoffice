@@ -1,0 +1,5 @@
+Column Name,Display Name,Data Type,Required,Description
+fgj_rateid,Rate ID,Unique Identifier,Yes,Primary key - auto-generated
+fgj_manufacturer,Manufacturer,Choice,Yes,BMW / ROLLS_ROYCE / NISSAN
+fgj_routecode,Route Code,Text (50),Yes,SOUTHAMPTON_AUCKLAND / SOUTHAMPTON_HALIFAX / SOUTHAMPTON_NYC
+fgj_routename,Route Name,Text (100),No,Southampton to Auckland

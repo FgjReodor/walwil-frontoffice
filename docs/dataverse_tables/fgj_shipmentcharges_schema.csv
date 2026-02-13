@@ -1,0 +1,10 @@
+Column Name,Display Name,Data Type,Required,Description
+fgj_shipmentchargeid,Shipment Charge ID,Unique Identifier,Yes,Primary key - auto-generated
+fgj_shipmentid,Shipment,Lookup (fgj_shipments),Yes,Parent shipment
+fgj_chargecode,Charge Code,Text (10),Yes,OCEAN / BAH / BAM / PSD / ETS / THL / WHD / ORA
+fgj_description,Description,Text (100),No,Charge description
+fgj_quantity,Quantity,Whole Number,Yes,Number of vehicles
+fgj_rate,Rate,Decimal,Yes,Per-unit rate
+fgj_currency,Currency,Text (3),Yes,USD / EUR
+fgj_amount,Amount,Decimal,Yes,rate x quantity
+fgj_freightterms,Freight Terms,Choice,Yes,PREPAID / COLLECT

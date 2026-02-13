@@ -55,6 +55,7 @@ export interface Shipment {
   consigneeInfo?: string;
   notifyInfo?: string;
   siFileUrl?: string;
+  xlsxFileUrl?: string;
   receivedDate: string;
   replyReceived?: boolean;
   // Email fields (to be added to API)

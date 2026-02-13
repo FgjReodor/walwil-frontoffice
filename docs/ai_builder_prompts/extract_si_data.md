@@ -1,13 +1,15 @@
 # Extract SI Data — AI Builder Prompt
 
 **Used by:** SI Email Processor
-**Inputs:** subject, filename, documentContent
+**Inputs:** subject, emailBody, filename, documentContent
 
 ## Prompt
 
-You are a shipping document analyst. Extract shipping instruction data from the following document content.
+You are a shipping document analyst. Extract shipping instruction data from the email and attached document below. The email body may contain additional context, corrections, or information not in the attachment — use both sources.
 
 **Email Subject:** @{subject}
+**Email Body:**
+@{emailBody}
 **Filename:** @{filename}
 **Document Content:**
 @{documentContent}
@@ -20,10 +22,10 @@ IMPORTANT RULES:
    - bl_number (Bill of Lading)
    - vessel (vessel name is REQUIRED)
    - port_of_destination
-   - Vehicle weight_kg (add "Vehicle Weight:VIN_NUMBER" for each vehicle missing weight)
+   - Vehicle weight_kg (add "Vehicle weights missing: X vehicles" as ONE summary entry — do NOT list individual VINs here, those go in vehicles_missing_weight)
    - Vehicle vin
 
-   Do NOT flag as missing: port_of_loading (comes from external source),
+   Do NOT flag as missing:
    year, color, length, width, height, vehicle_type, hs_code, customer_reference,
    ecn_crn_number, country_of_origin, hazardous, afv, partner, berths, POR, PFD,
    party numbers, departure_from. These are optional or come from other sources.
@@ -70,9 +72,9 @@ PARTY ADDRESS EXTRACTION:
     "booking_number": "Booking reference number",
     "vessel": "Vessel name",
     "voyage": "Voyage number if separate from vessel",
-    "port_of_loading": "Origin port code (e.g., GBSOU)",
+    "port_of_loading": "ALWAYS extract from document if present (look for 'Port of loading', 'POL', 'Load port'). Convert to UN/LOCODE format: 2-letter country + 3-letter port (e.g., Southampton=GBSOU, Bremerhaven=DEBRH, Zeebrugge=BEZEE, Durban=ZADUR, Auckland=NZAKL, New York=USNYC, Halifax=CAHAL, Charleston=USCHS). If the document says a port name, convert it to the code.",
     "pol_berth": "POL berth if specified",
-    "port_of_destination": "Destination port code",
+    "port_of_destination": "UN/LOCODE format: 2-letter country + 3-letter port (e.g., NZAKL, USNYC, CAHAL)",
     "pod_berth": "POD berth if specified",
     "place_of_receipt": "POR - where cargo is received",
     "place_of_final_delivery": "PFD - final delivery location",
@@ -135,9 +137,15 @@ PARTY ADDRESS EXTRACTION:
     "vehicles": [],
     "vehicles_missing_weight": ["VINs with missing/null/empty/zero weight"],
     "vehicles_with_issues": ["VINs with suspicious or ambiguous data"],
-    "missing_fields": ["fields that are missing - use 'vessel' not 'vessel_name', include 'Vehicle Weight:VIN' for each missing weight"],
+    "missing_fields": ["fields that are missing - use summary counts not individual VINs, e.g. 'Vehicle weights missing: 12 vehicles'"],
     "ambiguous_fields": ["field:reason for each ambiguous item, including weight_mismatch and duplicate_vin checks"]
   }
+
+EMAIL VS ATTACHMENT PRIORITY:
+- If the email body contains information that contradicts the attachment, prefer the email body (it may contain corrections or updates).
+- If the email body mentions a vessel, port, BL number, or dates not in the attachment, include them.
+- Add "email_override:field_name" to ambiguous_fields if email and attachment conflict.
+- Ignore email signatures, disclaimers, and boilerplate text.
 
 FIELD NOTES:
   - Party addresses: Split into structured fields. If only a single address string is available,

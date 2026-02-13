@@ -5,7 +5,7 @@
 
 ## Prompt
 
-You are a shipping rate analyst. Parse this raw WWO worksheet data and extract structured rates.
+You are a shipping rate analyst. Parse this raw WWO worksheet data and extract structured rates with UN/LOCODE port codes.
 
 **Raw Data:**
 @{rawData}
@@ -27,40 +27,47 @@ MANUFACTURER FIELD RULES:
 - IMPORTANT: Use underscore format: "ROLLS_ROYCE" (not "ROLLS ROYCE")
 - Zeebrugge/Bremerhaven routes under the BMW section are still manufacturer "BMW"
 
-DEPARTURE REGION HANDLING:
-- SOUTHAMPTON → routeCode prefix: "SOUTHAMPTON"
-- ZEEBRUGGE/BREMERHAVEN → create SEPARATE entries for BOTH "BREMERHAVEN" and "ZEEBRUGGE" prefixes (same base rates, but ETS differs — look for "DEBRH" vs "BEZEE" rows)
-- DURBAN → routeCode prefix: "DURBAN"
-- Any other departure region → use the region name uppercased, spaces removed
+PORT CODE MAPPING — UN/LOCODE format (2-letter country + 3-letter port):
 
-ROUTE CODE FORMAT: {DEPARTURE}_{DESTINATION_PORT_NAME}
-- Use the DESTINATION PORT NAME, not the country/region name
-- Destination must be uppercased with spaces removed
-- Examples:
-  - Halifax → SOUTHAMPTON_HALIFAX (not SOUTHAMPTON_CANADA)
-  - NYC → BREMERHAVEN_NYC (not BREMERHAVEN_USA)
-  - Manzanillo → SOUTHAMPTON_MANZANILLO (not SOUTHAMPTON_PANAMA)
-  - Callao/Pisco → SOUTHAMPTON_CALLAO (use first port name only)
-  - Manta → SOUTHAMPTON_MANTA (not SOUTHAMPTON_ECUADOR)
-  - Reunion → BREMERHAVEN_REUNION
+Departure regions → polCode:
+- SOUTHAMPTON → "GBSOU"
+- BREMERHAVEN → "DEBRH"
+- ZEEBRUGGE → "BEZEE"
+- DURBAN → "ZADUR"
+
+Destination ports → podCode:
+- Halifax → "CAHAL"
+- NYC / New York → "USNYC"
+- Manzanillo → "PAMIT"
+- Callao / Pisco → "PEPIO"
+- Manta → "ECMEC"
+- Brisbane → "AUBNE"
+- Port Kembla → "AUPKL"
+- Melbourne → "AUMEL"
+- Fremantle → "AUFRE"
+- Auckland → "NZAKL"
+- Reunion → "RERUN"
+
+If a port name is NOT in the list above, construct the UN/LOCODE: 2-letter ISO country code + first 3 letters of port name, uppercased (e.g., Yokohama Japan → "JPYOK").
+
+DEPARTURE REGION HANDLING:
+- ZEEBRUGGE/BREMERHAVEN → create SEPARATE entries for BOTH polCode "DEBRH" and polCode "BEZEE" (same base OCEAN/BAH/BAM rates, but ETS differs — look for "DEBRH" vs "BEZEE" rows)
+- Each other departure maps directly to its polCode above.
 
 MULTI-PORT COLUMNS:
 - When a column header lists multiple ports (e.g., "Brisbane, Port Kembla, Melbourne, Fremantle"), create a SEPARATE rate entry for EACH port with the same rates.
-- Example: "Brisbane, Port Kembla, Melbourne, Fremantle" with rate 234 USD becomes 4 entries:
-  - SOUTHAMPTON_BRISBANE (rate 234)
-  - SOUTHAMPTON_PORTKEMBLA (rate 234)
-  - SOUTHAMPTON_MELBOURNE (rate 234)
-  - SOUTHAMPTON_FREMANTLE (rate 234)
+- Example: "Brisbane, Port Kembla, Melbourne, Fremantle" with rate 234 USD becomes 4 entries with podCodes: AUBNE, AUPKL, AUMEL, AUFRE — all with the same rates.
 
 HEIGHT TIER HANDLING:
-- If there are separate rates for "up to 1.62 m height" and "over 1.62 m height", create two rate entries:
-  - Standard: use "up to 1.62m" rate, add "heightTier": "standard"
-  - High: use "over 1.62m" rate, add "heightTier": "high"
-- If only one rate row (e.g., "All models"), omit heightTier or set to null
+- If there are separate rates for "up to 1.62 m height" and "over 1.62 m height", create TWO rate entries:
+  - "standard": use the "up to 1.62m" / "<1.62m" rate, set "heightTier": "standard"
+  - "high": use the "over 1.62m" / ">1.62m" rate, set "heightTier": "high"
+- If only one rate row (e.g., "All models"), set "heightTier": null
+- IMPORTANT: Height tier applies to the ENTIRE rate entry including ALL its charges. Both height tiers get the SAME charges (BAH, BAM, ETS, etc.) — only the OCEAN base rate differs.
 
 CHARGE RULES:
 - COMPLETELY OMIT any charge where the rate is null, empty, "N/A", "Tariff", "bah", or non-numeric. Do NOT include it in the charges array at all.
-- ETS rows may be split by port (e.g., "ETS ... DEBRH" for Bremerhaven, "ETS ... BEZEE" for Zeebrugge) — assign to the correct route
+- ETS rows may be split by port (e.g., "ETS ... DEBRH" for Bremerhaven, "ETS ... BEZEE" for Zeebrugge) — assign the correct ETS rate to the matching polCode entry.
 - WHD/THD/PSD rows often have mixed currencies — extract the currency from the cell value (e.g., "CAD 20.50", "AUD 113.00", "NZD 97.01")
 - Every charge MUST have a numeric rate and a non-null currency string. If either is missing, omit the charge entirely.
 
@@ -68,24 +75,29 @@ OUTPUT FORMAT RULES:
 - Return ONLY raw valid JSON. No markdown, no code fences, no ```json wrapping.
 - Double-check JSON syntax: no missing commas, no truncated values.
 
-Return this JSON structure:
+Return this JSON structure (example — actual data will vary):
 {
   "rates": [
     {
       "manufacturer": "BMW",
-      "routeCode": "BREMERHAVEN_HALIFAX",
-      "departurePort": "Bremerhaven",
-      "destinationPort": "Halifax",
+      "polCode": "DEBRH",
+      "podCode": "CAHAL",
       "heightTier": "standard",
       "charges": [
         {"chargeCode": "OCEAN", "description": "Ocean Freight", "rate": 248, "currency": "USD", "freightTerms": "PREPAID"},
-        {"chargeCode": "BAH", "description": "Bunker Adjustment Factor", "rate": 32.9, "currency": "USD", "freightTerms": "PREPAID"},
-        {"chargeCode": "BAM", "description": "Bunker Adjustment Surcharge", "rate": 24.8, "currency": "USD", "freightTerms": "PREPAID"},
-        {"chargeCode": "ETS", "description": "Environment Tax Surcharge (DEBRH)", "rate": 8.93, "currency": "EUR", "freightTerms": "PREPAID"},
-        {"chargeCode": "WHD", "description": "Warehouse Handling", "rate": 20.5, "currency": "CAD", "freightTerms": "PREPAID"}
+        {"chargeCode": "BAH", "description": "Bunker Adjustment Factor", "rate": 30.52, "currency": "USD", "freightTerms": "PREPAID"},
+        {"chargeCode": "ETS", "description": "EU Emissions Trading", "rate": 11.95, "currency": "USD", "freightTerms": "PREPAID"},
+        {"chargeCode": "WHD", "description": "Wharfage Destination", "rate": 20.5, "currency": "CAD", "freightTerms": "PREPAID"}
       ]
     }
   ]
 }
 
-CRITICAL: Extract ALL routes from ALL departure regions for ALL manufacturers. Do not limit to Southampton only. Split multi-port columns into separate entries.
+CRITICAL - COMPLETENESS:
+- Extract ALL routes from ALL departure regions for ALL manufacturers found in the data.
+- Every unique combination of (manufacturer, departure region, destination port, height tier) = one rate entry.
+- For height tiers: if a departure+destination has both "standard" and "high" rates, output BOTH entries.
+- Split multi-port columns into separate entries (one per port).
+- Do NOT stop early. Do NOT truncate. Do NOT summarize.
+- Output EVERY SINGLE rate entry. No shortcuts, no omissions.
+- If any departure region, destination port, or manufacturer appears in the data that is not listed in the mapping above, still include it — construct the best UN/LOCODE you can.
