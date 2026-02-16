@@ -82,9 +82,13 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   });
 
   const detail = detailResponse?.success ? detailResponse.data : null;
-  // Only trust replyReceived if an email was actually sent (status is not 'new').
+  // Only trust replyReceived if an email was actually sent.
+  // Check BACKEND status (not derived status) because deriveStatus may return 'completed'
+  // for data-complete shipments even when no email was ever sent.
   // Existing Dataverse records may have replyReceived=true set incorrectly by SI Email Processor.
-  const hasReplyReceived = (shipment.replyReceived || detail?.replyReceived) && status !== 'new';
+  const backendStatus = shipment.status?.toLowerCase().replace(/\s+/g, '_');
+  const emailWasSent = !!backendStatus && backendStatus !== 'new';
+  const hasReplyReceived = (shipment.replyReceived || detail?.replyReceived) && emailWasSent;
 
   // Use detail data if available, otherwise fall back to list data
   const rawMissingFields = parseMissingFields(detail?.missingFields || shipment.missingFields);
@@ -672,7 +676,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {hasIssues && status !== 'completed' && (
+                    {(hasIssues || ambiguousFields.length > 0) && status !== 'completed' && (
                       <Button
                         variant="outline"
                         className="border-green-600 text-green-600 hover:bg-green-50"
