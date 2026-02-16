@@ -242,6 +242,10 @@ export interface ShipmentUpdateData {
   status?: string;
   vehicles?: VehicleUpdateData[];
   parties?: PartyUpdateData[];
+  // Recalculated missing-data flags (frontend computes, PA writes to Dataverse)
+  hasMissingData?: boolean;
+  missingFields?: string;
+  vehiclesMissingWeight?: string;
 }
 
 const UPDATE_SHIPMENT_BASE = process.env.POWER_AUTOMATE_UPDATE_SHIPMENT_BASE || '';

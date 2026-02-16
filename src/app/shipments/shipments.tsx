@@ -75,7 +75,10 @@ export function Shipments() {
   const manufacturers = [...new Set(shipments.map((s) => s.manufacturer))];
   const departures = [...new Set(shipments.map((s) => s.polCode || s.departureFrom).filter((d): d is string => Boolean(d)))];
 
-  const activeTaskCount = shipments.filter((s) => s.hasMissingData).length;
+  const activeTaskCount = shipments.filter((s) => {
+    if (deriveStatus(s) === 'completed') return false;
+    return s.hasMissingData || !!s.vehiclesMissingWeight?.trim();
+  }).length;
 
   const handleToggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);

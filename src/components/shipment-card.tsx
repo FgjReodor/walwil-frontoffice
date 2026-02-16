@@ -43,6 +43,42 @@ import {
 import { toast } from 'sonner';
 import { openShipmentPreview } from '@/lib/export-excel';
 
+/**
+ * Recalculate missing-data flags based on current field values and vehicles.
+ * Keeps existing missingFields entries that can't be validated here (e.g. container_number,
+ * duplicate_vin) and removes entries where the data is now present.
+ */
+function recalculateMissingFlags(
+  fields: { vesselVoyage: string; podCode: string },
+  vehicles: Vehicle[],
+  currentMissingFields: string[],
+) {
+  // Filter existing missingFields — remove items that are now resolved
+  const updatedMissing = currentMissingFields.filter(field => {
+    const lower = field.toLowerCase();
+    // Vehicle weight handled separately via vehiclesMissingWeight
+    if (lower.includes('vehicle') && lower.includes('weight')) return false;
+    // POL comes from WWO sheets, not editable here — always filter out
+    if (lower.includes('port') && lower.includes('loading')) return false;
+    // Vessel — remove if now populated
+    if (lower === 'vessel' && fields.vesselVoyage) return false;
+    // Destination — remove if now populated
+    if (lower.includes('destination') && fields.podCode) return false;
+    return true;
+  });
+
+  // Recalculate vehiclesMissingWeight from actual vehicle data
+  const vinsStillMissing = vehicles
+    .filter(v => v.weightKg === null || v.weightKg === 0)
+    .map(v => v.vin);
+
+  const missingFields = updatedMissing.join(', ');
+  const vehiclesMissingWeight = vinsStillMissing.join(', ');
+  const hasMissingData = updatedMissing.length > 0 || vinsStillMissing.length > 0;
+
+  return { hasMissingData, missingFields, vehiclesMissingWeight };
+}
+
 interface ShipmentCardProps {
   shipment: Shipment;
   isExpanded: boolean;
@@ -62,6 +98,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   });
   const [editVehicles, setEditVehicles] = useState<Vehicle[]>([]);
   const [editParties, setEditParties] = useState<ShipmentParty[]>([]);
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false);
   const queryClient = useQueryClient();
 
   const priority = calculatePriority(shipment);
@@ -190,20 +227,32 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   };
 
   const handleMarkComplete = async () => {
+    if (isMarkingComplete) return;
+    setIsMarkingComplete(true);
     try {
-      // Send ALL current field values — PA flow always maps all 5 shipment fields,
-      // so missing fields get set to null in Dataverse (wiping data).
+      const currentVessel = detail?.vesselVoyage || shipment.vesselVoyage || '';
+      const currentPod = detail?.podCode || shipment.podCode || '';
+      const currentVehicles = detail?.vehicles || [];
+
+      // Recalculate missing-data flags from current state
+      const flags = recalculateMissingFlags(
+        { vesselVoyage: currentVessel, podCode: currentPod },
+        currentVehicles,
+        rawMissingFields,
+      );
+
       const result = await updateShipmentData(shipment.id, {
-        vesselVoyage: detail?.vesselVoyage || shipment.vesselVoyage || '',
+        vesselVoyage: currentVessel,
         polCode: detail?.polCode || shipment.polCode || '',
-        podCode: detail?.podCode || shipment.podCode || '',
+        podCode: currentPod,
         notes: detail?.notes || shipment.notes || '',
         status: 'Completed',
+        ...flags,
       });
       if (result.success) {
         toast.success('Shipment marked as complete');
         await refetchDetail();
-        queryClient.invalidateQueries({ queryKey: ['shipments'] });
+        await queryClient.invalidateQueries({ queryKey: ['shipments'] });
       } else {
         toast.error('Failed to update status', {
           description: result.message || 'Please try again',
@@ -211,13 +260,15 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
       }
     } catch (error) {
       toast.error('Failed to update status');
+    } finally {
+      setIsMarkingComplete(false);
     }
   };
 
   const handleRefresh = async () => {
     await refetchDetail();
     // Also invalidate the list to pick up any status changes
-    queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    await queryClient.invalidateQueries({ queryKey: ['shipments'] });
     toast.success('Data refreshed');
   };
 
@@ -266,18 +317,26 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   const handleSaveEdit = async () => {
     setIsSaving(true);
     try {
+      // Recalculate missing-data flags from edited values
+      const flags = recalculateMissingFlags(
+        { vesselVoyage: editFormData.vesselVoyage, podCode: editFormData.podCode },
+        editVehicles,
+        rawMissingFields,
+      );
+
       const result = await updateShipmentData(shipment.id, {
         ...editFormData,
         status: shipment.status || 'New', // Preserve current backend status
         vehicles: editVehicles,
         parties: editParties,
+        ...flags,
       });
       if (result.success) {
         toast.success('Shipment updated successfully');
         setIsEditMode(false);
-        // Refresh data to show updated values
+        // Refresh both detail and list data before re-rendering
         await refetchDetail();
-        queryClient.invalidateQueries({ queryKey: ['shipments'] });
+        await queryClient.invalidateQueries({ queryKey: ['shipments'] });
       } else {
         toast.error('Failed to update shipment', {
           description: result.message || 'Please try again',
@@ -599,7 +658,6 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       title={formatFieldName(field)}
                       source="From: Attachment"
                       description={getFieldDescription(field)}
-                      status={status}
                     />
                   ))}
                   {vehiclesMissingWeight.length > 0 && (
@@ -608,7 +666,6 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       source="From: Attachment"
                       description={`Weight data missing for ${vehiclesMissingWeight.length} vehicle(s)`}
                       value={vehiclesMissingWeight.slice(0, 3).join(', ') + (vehiclesMissingWeight.length > 3 ? '...' : '')}
-                      status={status}
                     />
                   )}
                 </div>
@@ -647,8 +704,8 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                 shipment={{ ...shipment, ...detail } as Shipment}
               />
 
-              {/* Email Form — show when there are issues */}
-              {hasIssues && (
+              {/* Email Form — show when there are issues and shipment is not completed */}
+              {hasIssues && status !== 'completed' && (
                 <SendEmailForm
                   toEmail={detail?.senderEmail || shipment.senderEmail || ''}
                   shipment={{ ...shipment, ...detail } as Shipment}
@@ -690,9 +747,14 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                         variant="outline"
                         className="border-green-600 text-green-600 hover:bg-green-50"
                         onClick={handleMarkComplete}
+                        disabled={isMarkingComplete}
                       >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Mark Complete
+                        {isMarkingComplete ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                        )}
+                        {isMarkingComplete ? 'Completing...' : 'Mark Complete'}
                       </Button>
                     )}
                     {detail && (
@@ -745,29 +807,25 @@ interface IssueCardProps {
   source: string;
   description: string;
   value?: string;
-  status: ReturnType<typeof deriveStatus>;
 }
 
-function IssueCard({ title, source, description, value, status }: IssueCardProps) {
+function IssueCard({ title, source, description, value }: IssueCardProps) {
   return (
     <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{title}</span>
-              <span className="text-sm text-gray-500">{source}</span>
-            </div>
-            <p className="text-sm text-gray-600 mt-1">{description}</p>
-            {value && (
-              <p className="text-sm text-gray-500 mt-1">
-                VINs: <span className="font-mono bg-white px-1 rounded text-xs">{value}</span>
-              </p>
-            )}
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-900">{title}</span>
+            <span className="text-sm text-gray-500">{source}</span>
           </div>
+          <p className="text-sm text-gray-600 mt-1">{description}</p>
+          {value && (
+            <p className="text-sm text-gray-500 mt-1">
+              VINs: <span className="font-mono bg-white px-1 rounded text-xs">{value}</span>
+            </p>
+          )}
         </div>
-        <StatusBadge status={status} />
       </div>
     </div>
   );
