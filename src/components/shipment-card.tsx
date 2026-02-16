@@ -191,7 +191,15 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
 
   const handleMarkComplete = async () => {
     try {
-      const result = await updateShipmentData(shipment.id, { status: 'Completed' });
+      // Send ALL current field values — PA flow always maps all 5 shipment fields,
+      // so missing fields get set to null in Dataverse (wiping data).
+      const result = await updateShipmentData(shipment.id, {
+        vesselVoyage: detail?.vesselVoyage || shipment.vesselVoyage || '',
+        polCode: detail?.polCode || shipment.polCode || '',
+        podCode: detail?.podCode || shipment.podCode || '',
+        notes: detail?.notes || shipment.notes || '',
+        status: 'Completed',
+      });
       if (result.success) {
         toast.success('Shipment marked as complete');
         await refetchDetail();
@@ -260,6 +268,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
     try {
       const result = await updateShipmentData(shipment.id, {
         ...editFormData,
+        status: shipment.status || 'New', // Preserve current backend status
         vehicles: editVehicles,
         parties: editParties,
       });

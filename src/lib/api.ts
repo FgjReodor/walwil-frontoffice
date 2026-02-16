@@ -283,9 +283,21 @@ export async function updateShipment(
   }
 
   const url = `${UPDATE_SHIPMENT_BASE}${shipmentId}${UPDATE_SHIPMENT_QUERY}`;
+  // Always include vehicles and parties as arrays — Power Automate's ForEach
+  // crashes on null/undefined. Strip undefined top-level fields so PA doesn't
+  // overwrite Dataverse columns with null (e.g. clearing fgj_status on edits).
+  const body: Record<string, unknown> = {
+    vehicles: [],
+    parties: [],
+  };
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      body[key] = key === 'vehicles' || key === 'parties' ? value || [] : value;
+    }
+  }
   return fetchApi<Shipment>(url, {
     method: 'POST',
-    body: data,
+    body,
   });
 }
 
