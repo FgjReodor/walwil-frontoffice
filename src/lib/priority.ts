@@ -25,32 +25,41 @@ export function calculatePriority(shipment: Shipment): Priority {
 /**
  * Derive display status from shipment data.
  *
- * Status flow: New → Awaiting Customer (after email sent) → Processing (reply received) → Completed
+ * Status meanings:
+ *   - New:               Has issues, no email sent yet
+ *   - Awaiting Customer: Email sent, waiting for reply
+ *   - Processing:        Reply received but still has outstanding issues
+ *   - Completed:         All data is good — ready for CSV/export
  *
  * Backend (Power Automate) sets:
  *   - fgj_status = "Email Sent" when API-SendEmail runs
  *   - fgj_replyreceived = true when SI-MonitorReplies detects a reply
  *
- * hasMissingData alone does NOT trigger 'awaiting_customer' — missing data affects priority only.
  * replyReceived is only trusted when an email was actually sent (status !== "New"),
  * because existing Dataverse records may have replyReceived=true incorrectly.
  */
 export function deriveStatus(shipment: Shipment): ShipmentStatus {
   const apiStatus = shipment.status?.toLowerCase().replace(/\s+/g, '_');
   const emailWasSent = !!apiStatus && apiStatus !== 'new';
+  const dataComplete = !shipment.hasMissingData && !shipment.ambiguousFields?.trim();
 
-  // 1. Reply received — only trust if an email was actually sent
+  // 1. All data is good → completed (ready for CSV/export)
+  if (dataComplete) return 'completed';
+
+  // 2. Explicitly marked as completed by user (overrides issues)
+  if (apiStatus === 'completed') return 'completed';
+
+  // 3. Reply received — only trust if an email was actually sent
   if (shipment.replyReceived && emailWasSent) {
-    if (!shipment.hasMissingData) return 'completed';
+    // Still has issues after reply → needs staff review
     return 'processing';
   }
 
-  // 2. Backend workflow status
+  // 4. Backend workflow status
   if (apiStatus === 'email_sent' || apiStatus === 'awaiting_customer') return 'awaiting_customer';
   if (apiStatus === 'processing') return 'processing';
-  if (apiStatus === 'completed') return 'completed';
 
-  // 3. Default: new (even if hasMissingData or replyReceived with bad data)
+  // 4. Default: new (has issues, no email sent)
   return 'new';
 }
 

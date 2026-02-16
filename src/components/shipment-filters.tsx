@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { ShipmentFilters as Filters, Priority } from '@/types/shipment';
+import type { ShipmentFilters as Filters, Priority, ShipmentStatus } from '@/types/shipment';
 
 interface ShipmentFiltersProps {
   filters: Filters;
@@ -85,6 +85,25 @@ export function ShipmentFilters({
           <SelectItem value="critical">Critical</SelectItem>
           <SelectItem value="medium">Medium</SelectItem>
           <SelectItem value="ready">Ready</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Status Filter */}
+      <Select
+        value={filters.status || 'all'}
+        onValueChange={(value) =>
+          updateFilter('status', value === 'all' ? undefined : (value as ShipmentStatus))
+        }
+      >
+        <SelectTrigger className="w-[160px] bg-white">
+          <SelectValue placeholder="All Statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="new">New</SelectItem>
+          <SelectItem value="awaiting_customer">Awaiting Customer</SelectItem>
+          <SelectItem value="processing">Processing</SelectItem>
+          <SelectItem value="completed">Completed</SelectItem>
         </SelectContent>
       </Select>
 

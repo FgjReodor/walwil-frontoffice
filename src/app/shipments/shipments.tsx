@@ -8,7 +8,7 @@ import { ShipmentCardSkeletonList } from '@/components/shipment-card-skeleton';
 import { ShipmentFilters } from '@/components/shipment-filters';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, AlertCircle } from 'lucide-react';
-import { calculatePriority } from '@/lib/priority';
+import { calculatePriority, deriveStatus } from '@/lib/priority';
 import type { Shipment, Priority, ShipmentFilters as Filters } from '@/types/shipment';
 
 export function Shipments() {
@@ -51,6 +51,9 @@ export function Shipments() {
       return false;
     }
     if (filters.priority && calculatePriority(shipment) !== filters.priority) {
+      return false;
+    }
+    if (filters.status && deriveStatus(shipment) !== filters.status) {
       return false;
     }
     if (filters.departureFrom && (shipment.polCode || shipment.departureFrom) !== filters.departureFrom) {

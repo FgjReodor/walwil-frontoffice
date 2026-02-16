@@ -185,6 +185,23 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
     }
   };
 
+  const handleMarkComplete = async () => {
+    try {
+      const result = await updateShipmentData(shipment.id, { status: 'Completed' });
+      if (result.success) {
+        toast.success('Shipment marked as complete');
+        await refetchDetail();
+        queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      } else {
+        toast.error('Failed to update status', {
+          description: result.message || 'Please try again',
+        });
+      }
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
   const handleRefresh = async () => {
     await refetchDetail();
     // Also invalidate the list to pick up any status changes
@@ -617,64 +634,90 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                 shipment={{ ...shipment, ...detail } as Shipment}
               />
 
-              {/* Actions Section */}
-              {hasIssues ? (
-                // Show email form for items with issues
+              {/* Email Form — show when there are issues */}
+              {hasIssues && (
                 <SendEmailForm
                   toEmail={detail?.senderEmail || shipment.senderEmail || ''}
                   shipment={{ ...shipment, ...detail } as Shipment}
                 />
-              ) : (
-                // Show Generate CSV for ready items
-                <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-green-800">Ready for Processing</p>
-                        <p className="text-sm text-green-600">All documentation complete</p>
-                      </div>
+              )}
+
+              {/* CSV / Export Section — always visible */}
+              <div className={cn(
+                "rounded-lg border p-4",
+                hasIssues
+                  ? "border-gray-200 bg-gray-50"
+                  : "border-green-200 bg-green-50"
+              )}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full",
+                      hasIssues ? "bg-gray-100" : "bg-green-100"
+                    )}>
+                      <CheckCircle className={cn("h-5 w-5", hasIssues ? "text-gray-500" : "text-green-600")} />
                     </div>
-                    <div className="flex items-center gap-2">
-                      {detail && (
-                        <Button
-                          variant="outline"
-                          className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                          onClick={() => openShipmentPreview(detail)}
-                        >
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Preview
-                        </Button>
-                      )}
-                      {csvResult ? (
-                        <Button
-                          variant="outline"
-                          className="border-green-600 text-green-600 hover:bg-green-50"
-                          onClick={() => window.open(csvResult.fileUrl, '_blank')}
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download {csvResult.fileName}
-                        </Button>
+                    <div>
+                      {hasIssues ? (
+                        <>
+                          <p className="font-medium text-gray-700">Export</p>
+                          <p className="text-sm text-gray-500">Generate CSV despite outstanding issues</p>
+                        </>
                       ) : (
-                        <Button
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={handleGenerateCsv}
-                          disabled={isGeneratingCsv}
-                        >
-                          {isGeneratingCsv ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="mr-2 h-4 w-4" />
-                          )}
-                          Generate CSV
-                        </Button>
+                        <>
+                          <p className="font-medium text-green-800">Ready for Processing</p>
+                          <p className="text-sm text-green-600">All documentation complete</p>
+                        </>
                       )}
                     </div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    {hasIssues && status !== 'completed' && (
+                      <Button
+                        variant="outline"
+                        className="border-green-600 text-green-600 hover:bg-green-50"
+                        onClick={handleMarkComplete}
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Mark Complete
+                      </Button>
+                    )}
+                    {detail && (
+                      <Button
+                        variant="outline"
+                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                        onClick={() => openShipmentPreview(detail)}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Preview
+                      </Button>
+                    )}
+                    {csvResult ? (
+                      <Button
+                        variant="outline"
+                        className="border-green-600 text-green-600 hover:bg-green-50"
+                        onClick={() => window.open(csvResult.fileUrl, '_blank')}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download {csvResult.fileName}
+                      </Button>
+                    ) : (
+                      <Button
+                        className={hasIssues ? "bg-gray-600 hover:bg-gray-700" : "bg-green-600 hover:bg-green-700"}
+                        onClick={handleGenerateCsv}
+                        disabled={isGeneratingCsv}
+                      >
+                        {isGeneratingCsv ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        Generate CSV
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </>
           )}
         </div>

@@ -239,6 +239,7 @@ export interface ShipmentUpdateData {
   polCode?: string;
   podCode?: string;
   notes?: string;
+  status?: string;
   vehicles?: VehicleUpdateData[];
   parties?: PartyUpdateData[];
 }
