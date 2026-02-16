@@ -82,7 +82,9 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   });
 
   const detail = detailResponse?.success ? detailResponse.data : null;
-  const hasReplyReceived = shipment.replyReceived || detail?.replyReceived;
+  // Only trust replyReceived if an email was actually sent (status is not 'new').
+  // Existing Dataverse records may have replyReceived=true set incorrectly by SI Email Processor.
+  const hasReplyReceived = (shipment.replyReceived || detail?.replyReceived) && status !== 'new';
 
   // Use detail data if available, otherwise fall back to list data
   const rawMissingFields = parseMissingFields(detail?.missingFields || shipment.missingFields);
@@ -284,8 +286,8 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                 Reply
               </span>
             )}
-            {status === 'urgent' && <StatusBadge status="urgent" />}
-            {status === 'awaiting_customer' && !hasReplyReceived && <StatusBadge status="awaiting_customer" />}
+            {status === 'awaiting_customer' && <StatusBadge status="awaiting_customer" />}
+            {status === 'processing' && <StatusBadge status="processing" />}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -709,7 +711,7 @@ function IssueCard({ title, source, description, value, status }: IssueCardProps
             )}
           </div>
         </div>
-        <StatusBadge status="awaiting_customer" />
+        <StatusBadge status={status} />
       </div>
     </div>
   );

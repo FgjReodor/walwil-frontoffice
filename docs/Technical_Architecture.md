@@ -19,7 +19,7 @@ WalWil Shipping automates the processing of shipping instructions (SI) for vehic
                     ├─────────────────────────────────────────────┤
                     │  SI Email Processor    → AI Builder         │
                     │  SI Monitor Replies    → AI Builder         │
-                    │  WWO Worksheet Parser  → AI Builder         │
+                    │  WWO Worksheet Parser  → Office Script only  │
                     ├─────────────────────────────────────────────┤
                     │  HTTP API Flows (6 endpoints)               │
                     │  GetShipments, GetShipmentDetail,           │
@@ -184,13 +184,12 @@ The vehicle prompt uses a dead-simple pipe-delimited format (~15 tokens/vehicle 
          ▼
   ┌─ WWO Worksheet Parser (OneDrive trigger: file modified) ──────────┐
   │                                                                    │
-  │  1. Run WWO Worksheet Parser script (extract bookings + sheets)    │
-  │  2. Send rate sheet data to AI Builder "Structure WWO Rates"       │
-  │  3. Parse AI response for rate/charge structures                   │
-  │  4. Create fgj_rate records per manufacturer/route                 │
-  │  5. Create fgj_charge records linked to rates                      │
-  │  6. Filter out existing bookings (no duplicates)                   │
-  │  7. Create new fgj_wwo_bookings records                            │
+  │  1. Run WWO Worksheet Parser script                                │
+  │     (extracts bookings + structured rates directly from Excel)     │
+  │  2. Create/update fgj_rate records per manufacturer/route          │
+  │  3. Create fgj_charge records linked to rates                      │
+  │  4. Filter out existing bookings (no duplicates)                   │
+  │  5. Create new fgj_wwo_bookings records                            │
   │                                                                    │
   └────────────────────────────────────────────────────────────────────┘
 ```
@@ -258,7 +257,7 @@ The vehicle prompt uses a dead-simple pipe-delimited format (~15 tokens/vehicle 
 | Frontend hosting | Azure App Service (Linux, Node 22, Basic B1) |
 | Authentication | Microsoft Entra ID (Easy Auth, multi-tenant) |
 | API layer | Power Automate HTTP-triggered flows (x-api-key auth) |
-| AI processing | AI Builder custom prompts (4 prompts, GPT-4.1) |
+| AI processing | AI Builder custom prompts (3 prompts, GPT-4.1) |
 | Data extraction | Office Scripts (3 scripts running in Excel Online) |
 | Data store | Microsoft Dataverse (8 tables, 5 global option sets) |
 | File storage | OneDrive for Business (SI files, CSV output, XLSX output, rate worksheets) |
@@ -303,7 +302,7 @@ All API calls go through server actions (`'use server'`), keeping Power Automate
 | Office 365 Outlook | SI Email Processor, Monitor Replies, SendEmail | Email triggers + sending |
 | OneDrive for Business | SI Email Processor, WWO Parser, GenerateCSV | File storage + triggers |
 | Excel Online (Business) | SI Email Processor, WWO Parser | Run Office Scripts |
-| AI Builder | SI Email Processor (x2), Monitor Replies, WWO Parser | Custom prompt AI extraction (4 prompts) |
+| AI Builder | SI Email Processor (x2), Monitor Replies | Custom prompt AI extraction (3 prompts) |
 
 ---
 
@@ -335,7 +334,7 @@ Everything WalWil needs for the solution to function:
 |------|---------|----------|-------------|
 | SI Email Processor | New email with attachment | 2 (Extract SI Data + Extract Vehicles) | Main inbound flow — parse SI, create shipment+vehicles+parties+charges |
 | SI Monitor Replies | Reply email (RE: subject) | 1 (Extract Reply Data) | Update shipment from customer reply (weights, missing fields) |
-| WWO Worksheet Parser | OneDrive file modified | 1 (Structure WWO Rates) | Import rates+charges+bookings from WWO Excel worksheets |
+| WWO Worksheet Parser | OneDrive file modified | 0 | Import rates+charges+bookings from WWO Excel worksheets (Office Script parses rates directly) |
 | API-GetShipments | HTTP GET | 0 | List all shipments for frontend |
 | API-GetShipmentDetail | HTTP GET | 0 | Full shipment detail (vehicles, parties, charges) |
 | API-GetEmailThread | HTTP GET | 0 | Email thread history for a shipment |
@@ -343,14 +342,15 @@ Everything WalWil needs for the solution to function:
 | API-UpdateShipment | HTTP POST | 0 | Update shipment, vehicles, parties from frontend |
 | API-GenerateCSV | HTTP POST | 0 | Build CSV from shipment data, return download link |
 
-### AI Builder Prompts (4 total)
+### AI Builder Prompts (3 total)
 
 | Prompt | Model | Used By | Input | Output |
 |--------|-------|---------|-------|--------|
 | Extract SI Data | GPT-4.1 | SI Email Processor | subject, filename, documentContent | JSON: header, parties, validation (no vehicles) |
 | Extract Vehicles | GPT-4.1 | SI Email Processor | documentContent | Pipe-delimited lines: `VIN\|Model\|WeightKG\|CBM\|HSCode` |
 | Extract Reply Data | GPT-4.1 | SI Monitor Replies | missingFields, vehiclesMissingWeight, emailContent | JSON: extracted weights + fields from reply |
-| Structure WWO Rates | GPT-4.1 | WWO Worksheet Parser | rawData | JSON: rates array with charges per route |
+
+> **Note:** "Structure WWO Rates" prompt was removed — the WWO Worksheet Parser Office Script now extracts rates directly from Excel.
 
 ### Office Scripts (3 total)
 
@@ -358,7 +358,7 @@ Everything WalWil needs for the solution to function:
 |--------|---------|-------|--------|
 | BMW-Script | SI Email Processor | Excel SI attachment | ParseResult: si (header), vinlist (rows), shipperTable |
 | WW Excel Generator | SI Email Processor | Shipment data JSON | Populated XLSX with 5 sheets |
-| WWO Worksheet Parser | WWO Worksheet Parser flow | WWO Excel workbook | Bookings array + raw rate sheet data |
+| WWO Worksheet Parser | WWO Worksheet Parser flow | WWO Excel workbook | Bookings array + structured rates with charges |
 
 ### Dataverse Tables (8 total)
 

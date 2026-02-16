@@ -23,29 +23,34 @@ export function calculatePriority(shipment: Shipment): Priority {
 }
 
 /**
- * Derive display status from shipment data
+ * Derive display status from shipment data.
+ *
+ * Status flow: New → Awaiting Customer (after email sent) → Processing (reply received) → Completed
+ *
+ * Backend (Power Automate) sets:
+ *   - fgj_status = "Email Sent" when API-SendEmail runs
+ *   - fgj_replyreceived = true when SI-MonitorReplies detects a reply
+ *
+ * hasMissingData alone does NOT trigger 'awaiting_customer' — missing data affects priority only.
+ * replyReceived is only trusted when an email was actually sent (status !== "New"),
+ * because existing Dataverse records may have replyReceived=true incorrectly.
  */
 export function deriveStatus(shipment: Shipment): ShipmentStatus {
-  // If reply was received, check if still has missing data
-  if (shipment.replyReceived && !shipment.hasMissingData) {
-    return 'completed';
+  const apiStatus = shipment.status?.toLowerCase().replace(/\s+/g, '_');
+  const emailWasSent = !!apiStatus && apiStatus !== 'new';
+
+  // 1. Reply received — only trust if an email was actually sent
+  if (shipment.replyReceived && emailWasSent) {
+    if (!shipment.hasMissingData) return 'completed';
+    return 'processing';
   }
 
-  // If has missing data = awaiting customer response
-  if (shipment.hasMissingData) {
-    // If critical priority, also mark as urgent
-    if (calculatePriority(shipment) === 'critical') {
-      return 'urgent';
-    }
-    return 'awaiting_customer';
-  }
+  // 2. Backend workflow status
+  if (apiStatus === 'email_sent' || apiStatus === 'awaiting_customer') return 'awaiting_customer';
+  if (apiStatus === 'processing') return 'processing';
+  if (apiStatus === 'completed') return 'completed';
 
-  // Default to the status from API or 'new'
-  const status = shipment.status?.toLowerCase();
-  if (status === 'processing' || status === 'completed') {
-    return status as ShipmentStatus;
-  }
-
+  // 3. Default: new (even if hasMissingData or replyReceived with bad data)
   return 'new';
 }
 
