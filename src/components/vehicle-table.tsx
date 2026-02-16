@@ -4,6 +4,18 @@ import { Vehicle } from '@/types/shipment';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
+/** Detect and fix UTF-8 mojibake (e.g. "CoupÃ©" → "Coupé") */
+function fixMojibake(str: string): string {
+  try {
+    const bytes = new Uint8Array([...str].map(c => c.charCodeAt(0)));
+    const decoded = new TextDecoder('utf-8').decode(bytes);
+    // Only use decoded version if it's shorter (mojibake expands chars)
+    return decoded.length < str.length ? decoded : str;
+  } catch {
+    return str;
+  }
+}
+
 interface VehicleTableProps {
   vehicles: Vehicle[];
   isEditMode?: boolean;
@@ -63,7 +75,7 @@ export function VehicleTable({ vehicles, isEditMode, onVehiclesChange }: Vehicle
                       className="h-8 text-sm"
                     />
                   ) : (
-                    vehicle.model || '-'
+                    fixMojibake(vehicle.model) || '-'
                   )}
                 </td>
                 <td className="px-4 py-2 text-right">
@@ -75,7 +87,7 @@ export function VehicleTable({ vehicles, isEditMode, onVehiclesChange }: Vehicle
                       className="h-8 text-sm text-right w-24 ml-auto"
                     />
                   ) : vehicle.weightKg ? (
-                    <span className="text-gray-900">{vehicle.weightKg.toLocaleString()}</span>
+                    <span className="text-gray-900">{vehicle.weightKg}</span>
                   ) : (
                     <span className="text-orange-600 font-medium">Missing</span>
                   )}
@@ -90,7 +102,11 @@ export function VehicleTable({ vehicles, isEditMode, onVehiclesChange }: Vehicle
                       className="h-8 text-sm text-right w-20 ml-auto"
                     />
                   ) : (
-                    <span className="text-gray-700">{vehicle.cbm?.toFixed(2) || '-'}</span>
+                    <span className="text-gray-700">
+                      {vehicle.cbm
+                        ? (vehicle.cbm > 100 ? vehicle.cbm / 1000 : vehicle.cbm).toFixed(3)
+                        : '-'}
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-2 text-gray-700">

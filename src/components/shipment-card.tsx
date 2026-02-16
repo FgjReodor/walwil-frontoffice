@@ -360,7 +360,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
     <Card
       className={cn(
         'overflow-hidden border-l-4 transition-shadow hover:shadow-md',
-        priorityStyles.cardBorder
+        status === 'completed' ? 'border-l-emerald-500' : priorityStyles.cardBorder
       )}
     >
       {/* Collapsed Header */}
@@ -380,6 +380,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                 Reply
               </span>
             )}
+            {status === 'completed' && <StatusBadge status="completed" />}
             {status === 'awaiting_customer' && <StatusBadge status="awaiting_customer" />}
             {status === 'processing' && <StatusBadge status="processing" />}
           </div>
@@ -424,15 +425,26 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
       {/* Issue Summary (always visible) */}
       <div className={cn(
         'border-t px-4 py-2',
-        hasIssues ? 'bg-orange-50/50 border-orange-100' : 'bg-green-50/50 border-green-100'
+        status === 'completed' && hasIssues
+          ? 'bg-gray-50/50 border-gray-200'
+          : hasIssues
+            ? 'bg-orange-50/50 border-orange-100'
+            : 'bg-green-50/50 border-green-100'
       )}>
         <p className={cn(
           'text-sm',
-          hasIssues ? 'text-orange-700' : 'text-green-700'
+          status === 'completed' && hasIssues
+            ? 'text-gray-600'
+            : hasIssues
+              ? 'text-orange-700'
+              : 'text-green-700'
         )}>
           {!hasIssues && <CheckCircle className="inline h-4 w-4 mr-1 -mt-0.5" />}
-          {hasIssues && <AlertCircle className="inline h-4 w-4 mr-1 -mt-0.5" />}
-          {getIssueDescription()}
+          {hasIssues && status !== 'completed' && <AlertCircle className="inline h-4 w-4 mr-1 -mt-0.5" />}
+          {hasIssues && status === 'completed' && <CheckCircle className="inline h-4 w-4 mr-1 -mt-0.5" />}
+          {status === 'completed' && hasIssues
+            ? `Completed — ${missingFields.length + vehiclesMissingWeight.length} unresolved issue(s) at time of completion`
+            : getIssueDescription()}
         </p>
       </div>
 
@@ -656,13 +668,16 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
               {/* Issue Cards - Only show if there are issues */}
               {hasIssues && (missingFields.length > 0 || vehiclesMissingWeight.length > 0) && (
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-700">Issues Requiring Action</h3>
+                  <h3 className="text-sm font-medium text-gray-700">
+                    {status === 'completed' ? 'Issues at Time of Completion' : 'Issues Requiring Action'}
+                  </h3>
                   {missingFields.map((field, index) => (
                     <IssueCard
                       key={index}
                       title={formatFieldName(field)}
                       source="From: Attachment"
                       description={getFieldDescription(field)}
+                      muted={status === 'completed'}
                     />
                   ))}
                   {vehiclesMissingWeight.length > 0 && (
@@ -671,6 +686,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       source="From: Attachment"
                       description={`Weight data missing for ${vehiclesMissingWeight.length} vehicle(s)`}
                       value={vehiclesMissingWeight.slice(0, 3).join(', ') + (vehiclesMissingWeight.length > 3 ? '...' : '')}
+                      muted={status === 'completed'}
                     />
                   )}
                 </div>
@@ -718,30 +734,39 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
               )}
 
               {/* CSV / Export Section — always visible */}
+              {(() => {
+                const showGreenExport = !hasIssues || status === 'completed';
+                return (
               <div className={cn(
                 "rounded-lg border p-4",
-                hasIssues
-                  ? "border-gray-200 bg-gray-50"
-                  : "border-green-200 bg-green-50"
+                showGreenExport
+                  ? "border-green-200 bg-green-50"
+                  : "border-gray-200 bg-gray-50"
               )}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-full",
-                      hasIssues ? "bg-gray-100" : "bg-green-100"
+                      showGreenExport ? "bg-green-100" : "bg-gray-100"
                     )}>
-                      <CheckCircle className={cn("h-5 w-5", hasIssues ? "text-gray-500" : "text-green-600")} />
+                      <CheckCircle className={cn("h-5 w-5", showGreenExport ? "text-green-600" : "text-gray-500")} />
                     </div>
                     <div>
-                      {hasIssues ? (
+                      {showGreenExport ? (
                         <>
-                          <p className="font-medium text-gray-700">Export</p>
-                          <p className="text-sm text-gray-500">Generate CSV despite outstanding issues</p>
+                          <p className="font-medium text-green-800">
+                            {status === 'completed' ? 'Completed' : 'Ready for Processing'}
+                          </p>
+                          <p className="text-sm text-green-600">
+                            {status === 'completed' && hasIssues
+                              ? 'Marked complete — CSV export available'
+                              : 'All documentation complete'}
+                          </p>
                         </>
                       ) : (
                         <>
-                          <p className="font-medium text-green-800">Ready for Processing</p>
-                          <p className="text-sm text-green-600">All documentation complete</p>
+                          <p className="font-medium text-gray-700">Export</p>
+                          <p className="text-sm text-gray-500">Generate CSV despite outstanding issues</p>
                         </>
                       )}
                     </div>
@@ -783,7 +808,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       </Button>
                     ) : (
                       <Button
-                        className={hasIssues ? "bg-gray-600 hover:bg-gray-700" : "bg-green-600 hover:bg-green-700"}
+                        className={showGreenExport ? "bg-green-600 hover:bg-green-700" : "bg-gray-600 hover:bg-gray-700"}
                         onClick={handleGenerateCsv}
                         disabled={isGeneratingCsv}
                       >
@@ -798,6 +823,8 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                   </div>
                 </div>
               </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -812,13 +839,17 @@ interface IssueCardProps {
   source: string;
   description: string;
   value?: string;
+  muted?: boolean;
 }
 
-function IssueCard({ title, source, description, value }: IssueCardProps) {
+function IssueCard({ title, source, description, value, muted }: IssueCardProps) {
   return (
-    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+    <div className={cn(
+      "rounded-lg border p-4",
+      muted ? "border-gray-200 bg-gray-50" : "border-orange-200 bg-orange-50"
+    )}>
       <div className="flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+        <AlertCircle className={cn("h-5 w-5 mt-0.5", muted ? "text-gray-400" : "text-orange-500")} />
         <div>
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-900">{title}</span>
