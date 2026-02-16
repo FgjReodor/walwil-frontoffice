@@ -676,7 +676,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {(hasIssues || ambiguousFields.length > 0) && status !== 'completed' && (
+                    {status !== 'completed' && (
                       <Button
                         variant="outline"
                         className="border-green-600 text-green-600 hover:bg-green-50"

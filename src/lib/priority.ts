@@ -2,12 +2,12 @@ import { Shipment, Priority, ShipmentStatus } from '@/types/shipment';
 
 /**
  * Calculate priority based on shipment data
- * - Critical: Has missing data AND received more than 24 hours ago
- * - Medium: Has missing data but received within 24 hours
- * - Ready: No missing data
+ * - Critical: Has missing data or vehicles missing weight, AND received more than 24 hours ago
+ * - Medium: Has missing data or vehicles missing weight, but received within 24 hours
+ * - Ready: No missing data and no vehicles missing weight
  */
 export function calculatePriority(shipment: Shipment): Priority {
-  if (!shipment.hasMissingData) {
+  if (!shipment.hasMissingData && !shipment.vehiclesMissingWeight?.trim()) {
     return 'ready';
   }
 
@@ -41,7 +41,7 @@ export function calculatePriority(shipment: Shipment): Priority {
 export function deriveStatus(shipment: Shipment): ShipmentStatus {
   const apiStatus = shipment.status?.toLowerCase().replace(/\s+/g, '_');
   const emailWasSent = !!apiStatus && apiStatus !== 'new';
-  const dataComplete = !shipment.hasMissingData && !shipment.ambiguousFields?.trim();
+  const dataComplete = !shipment.hasMissingData && !shipment.ambiguousFields?.trim() && !shipment.vehiclesMissingWeight?.trim();
 
   // 1. All data is good → completed (ready for CSV/export)
   if (dataComplete) return 'completed';
