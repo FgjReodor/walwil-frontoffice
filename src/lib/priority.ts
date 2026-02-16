@@ -40,7 +40,7 @@ export function calculatePriority(shipment: Shipment): Priority {
  */
 export function deriveStatus(shipment: Shipment): ShipmentStatus {
   const apiStatus = shipment.status?.toLowerCase().replace(/\s+/g, '_');
-  const emailWasSent = !!apiStatus && apiStatus !== 'new';
+  const emailWasSent = apiStatus === 'email_sent' || apiStatus === 'awaiting_customer';
   const dataComplete = !shipment.hasMissingData && !shipment.ambiguousFields?.trim() && !shipment.vehiclesMissingWeight?.trim();
 
   // 1. All data is good → completed (ready for CSV/export)

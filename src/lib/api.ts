@@ -159,7 +159,7 @@ export async function generateCsv(
     };
   }
 
-  const url = `${GENERATE_CSV_BASE}${id}/generate_csv${GENERATE_CSV_QUERY}`;
+  const url = `${GENERATE_CSV_BASE}${id}${GENERATE_CSV_QUERY}`;
   return fetchApi<{ fileName: string; fileUrl: string }>(url, { method: 'POST', timeout: 120000 });
 }
 
