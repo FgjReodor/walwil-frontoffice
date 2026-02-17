@@ -130,7 +130,7 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   // Use detail data if available, otherwise fall back to list data
   const rawMissingFields = parseMissingFields(detail?.missingFields || shipment.missingFields);
   const rawVehiclesMissingWeight = parseVehiclesMissingWeight(detail?.vehiclesMissingWeight || shipment.vehiclesMissingWeight);
-  const ambiguousFields = parseAmbiguousFields(detail?.ambiguousFields || shipment.ambiguousFields);
+  const rawAmbiguousFields = parseAmbiguousFields(detail?.ambiguousFields || shipment.ambiguousFields);
 
   // Check if vehicles actually have all weights (backend may not have cleared the flags)
   const allVehiclesHaveWeight = detail?.vehicles
@@ -174,6 +174,23 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
     }
     return true;
   });
+
+  // Live weight mismatch: recalculate from actual vehicle data instead of stale Dataverse string
+  const currentVehicles = isEditMode ? editVehicles : (detail?.vehicles || []);
+  const effectiveTotalWeight = detail?.totalWeightKg ?? shipment.totalWeightKg;
+  const canVerifyWeight = currentVehicles.length > 0
+    && effectiveTotalWeight != null && effectiveTotalWeight !== 0
+    && currentVehicles.every(v => v.weightKg !== null && v.weightKg !== undefined);
+  const ambiguousFields = (() => {
+    if (!canVerifyWeight) return rawAmbiguousFields; // Can't verify — keep original entries
+    const vehicleWeightSum = currentVehicles.reduce((sum, v) => sum + (v.weightKg || 0), 0);
+    const nonWeightEntries = rawAmbiguousFields.filter(e => e.field.toLowerCase() !== 'weight_mismatch');
+    if (Math.round(vehicleWeightSum) === Math.round(effectiveTotalWeight!)) return nonWeightEntries; // Weights match — no warning
+    return [...nonWeightEntries, {
+      field: 'weight_mismatch',
+      reason: `Total shows ${Math.round(effectiveTotalWeight!).toLocaleString()} kg but sum of vehicles is ${Math.round(vehicleWeightSum).toLocaleString()} kg`,
+    }];
+  })();
 
   // Determine if there are actual remaining issues based on filtered fields
   // Don't rely solely on hasMissingData as it may be stale after customer provides info
