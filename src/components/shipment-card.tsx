@@ -368,21 +368,34 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
         className="flex cursor-pointer items-center justify-between p-4"
         onClick={onToggleExpand}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <PriorityBadge priority={priority} />
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900">{shipment.manufacturer}</span>
-            <span className="text-gray-400">•</span>
-            <span className="text-gray-600">{shipment.vesselVoyage || shipment.blNumber}</span>
-            {hasReplyReceived && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
-                <MailCheck className="h-3 w-3" />
-                Reply
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-gray-900 truncate">
+                {shipment.emailSubject || shipment.manufacturer}
               </span>
-            )}
-            {status === 'completed' && <StatusBadge status="completed" />}
-            {status === 'awaiting_customer' && <StatusBadge status="awaiting_customer" />}
-            {status === 'processing' && <StatusBadge status="processing" />}
+              {hasReplyReceived && (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full shrink-0">
+                  <MailCheck className="h-3 w-3" />
+                  Reply
+                </span>
+              )}
+              {status === 'completed' && <StatusBadge status="completed" />}
+              {status === 'awaiting_customer' && <StatusBadge status="awaiting_customer" />}
+              {status === 'processing' && <StatusBadge status="processing" />}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span>{shipment.manufacturer}</span>
+              <span className="text-gray-300">•</span>
+              <span className="font-mono text-xs">{shipment.blNumber}</span>
+              {shipment.vesselVoyage && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span>{shipment.vesselVoyage}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -731,8 +744,8 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                         })}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      Shipping Instructions {shipment.blNumber}
+                    <p className="text-sm font-medium text-gray-700">
+                      {detail?.emailSubject || shipment.emailSubject || `Shipping Instructions ${shipment.blNumber}`}
                     </p>
                     <p className="text-sm text-gray-500">
                       Route: {effectivePOL || 'N/A'} → {effectivePOD || 'N/A'}
@@ -742,6 +755,11 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
                       {shipment.totalUnits && ` • ${shipment.totalUnits} units`}
                     </p>
                   </div>
+
+                  {/* Email Body Preview */}
+                  {(detail?.emailBodyPreview || shipment.emailBodyPreview) && (
+                    <EmailBodyPreview body={detail?.emailBodyPreview || shipment.emailBodyPreview || ''} />
+                  )}
 
                   {/* Display Notes if present */}
                   {(detail?.notes || shipment.notes) && (
@@ -941,6 +959,57 @@ function formatPartyDisplay(party: ShipmentParty): string {
     party.country,
   ].filter(Boolean);
   return lines.join('\n');
+}
+
+// Email Body Preview Component
+// Body may be HTML (from Outlook) or plain text — sanitized with DOMPurify before rendering
+function EmailBodyPreview({ body }: { body: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isHtml = /<[a-z][\s\S]*>/i.test(body);
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email Body</span>
+        <button
+          type="button"
+          className="text-xs text-blue-600 hover:text-blue-800"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {isExpanded && (
+        isHtml ? (
+          <SanitizedHtml html={body} />
+        ) : (
+          <p className="text-sm text-gray-600 mt-2 whitespace-pre-wrap">{body}</p>
+        )
+      )}
+    </div>
+  );
+}
+
+/** Renders HTML email body after sanitizing with DOMPurify to prevent XSS */
+function SanitizedHtml({ html }: { html: string }) {
+  const [sanitized, setSanitized] = useState('');
+
+  // DOMPurify requires window — import dynamically on client
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useState(() => {
+    import('dompurify').then(({ default: DOMPurify }) => {
+      setSanitized(DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }));
+    });
+  });
+
+  if (!sanitized) return null;
+
+  return (
+    <div
+      className="text-sm text-gray-600 mt-2 max-h-96 overflow-y-auto rounded border border-gray-100 bg-gray-50 p-3 [&_img]:max-w-full [&_table]:text-xs [&_a]:text-blue-600"
+      dangerouslySetInnerHTML={{ __html: sanitized }}
+    />
+  );
 }
 
 // Party Editor Component
