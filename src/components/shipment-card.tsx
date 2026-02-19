@@ -119,13 +119,10 @@ export function ShipmentCard({ shipment, isExpanded, onToggleExpand }: ShipmentC
   });
 
   const detail = detailResponse?.success ? detailResponse.data : null;
-  // Only trust replyReceived if an email was actually sent.
-  // Check BACKEND status for statuses that specifically indicate an email was sent.
-  // "Completed" does NOT mean an email was sent — user can mark complete without emailing.
-  // Existing Dataverse records may have replyReceived=true set incorrectly by SI Email Processor.
-  const backendStatus = shipment.status?.toLowerCase().replace(/\s+/g, '_');
-  const emailWasSent = backendStatus === 'email_sent' || backendStatus === 'awaiting_customer';
-  const hasReplyReceived = (shipment.replyReceived || detail?.replyReceived) && emailWasSent;
+  // Detail API returns booleans as strings ("True"/"False") due to Power Automate
+  // @{} string interpolation — the string "False" is truthy in JS, so check explicitly.
+  const hasReplyReceived = shipment.replyReceived === true ||
+    String(detail?.replyReceived).toLowerCase() === 'true';
 
   // Use detail data if available, otherwise fall back to list data
   const rawMissingFields = parseMissingFields(detail?.missingFields || shipment.missingFields);
