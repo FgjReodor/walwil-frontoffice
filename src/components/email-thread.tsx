@@ -387,8 +387,12 @@ WalWil Shipping`;
         toast.success('Reply sent successfully', {
           description: `Sent to ${replyTo}`,
         });
-        // Refresh email thread
-        queryClient.invalidateQueries({ queryKey: ['email-thread', shipmentId] });
+        // Refresh email thread and shipment data (status changes to "Email Sent")
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['email-thread', shipmentId] }),
+          queryClient.invalidateQueries({ queryKey: ['shipment-detail', shipmentId] }),
+          queryClient.invalidateQueries({ queryKey: ['shipments'] }),
+        ]);
         // Close form after short delay
         setTimeout(() => onClose(), 1500);
       } else {

@@ -8,6 +8,7 @@ import { Shipment } from '@/types/shipment';
 import { Mail, Copy, Check, Loader2, CheckCircle } from 'lucide-react';
 import { parseMissingFields, parseVehiclesMissingWeight } from '@/lib/priority';
 import { sendShipmentEmail } from '@/app/shipments/actions/shipments';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 interface SendEmailFormProps {
@@ -16,6 +17,7 @@ interface SendEmailFormProps {
 }
 
 export function SendEmailForm({ toEmail, shipment }: SendEmailFormProps) {
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -122,6 +124,11 @@ WalWil Shipping`;
         toast.success('Email sent successfully', {
           description: `Sent to ${toEmail}`,
         });
+        // Refetch shipment data so status updates to "Awaiting Customer"
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['shipment-detail', shipment.id] }),
+          queryClient.invalidateQueries({ queryKey: ['shipments'] }),
+        ]);
       } else {
         toast.error('Failed to send email', {
           description: result.message || 'Please try again',
